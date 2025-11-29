@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from apps.core.models import GalleryImage
+from apps.core.models import GalleryImage, ContactMessage
 
 
 class GalleryImageSerializer(serializers.ModelSerializer):
@@ -30,3 +30,10 @@ class GalleryImageSerializer(serializers.ModelSerializer):
             if not data.get('image') and not data.get('image_url'):
                 raise serializers.ValidationError('Either image file or image_url must be provided')
         return data
+
+
+class ContactMessageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ContactMessage
+        fields = ['id', 'name', 'email', 'phone', 'subject', 'message', 'is_read', 'created_at']
+        read_only_fields = ['id', 'created_at']

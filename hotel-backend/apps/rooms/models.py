@@ -82,3 +82,50 @@ class RoomImage(models.Model):
         if self.image:
             return self.image.url
         return self.image_url
+
+
+class RoomAvailability(models.Model):
+    """Track room busy/unavailable periods"""
+
+    class Status(models.TextChoices):
+        BUSY = 'BUSY', 'Busy (Booked)'
+        MAINTENANCE = 'MAINTENANCE', 'Under Maintenance'
+        BLOCKED = 'BLOCKED', 'Blocked by Admin'
+
+    room = models.ForeignKey(Room, on_delete=models.CASCADE, related_name='availability_periods')
+    start_date = models.DateField()
+    end_date = models.DateField()
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.BLOCKED
+    )
+    notes = models.TextField(blank=True)
+    booking = models.ForeignKey(
+        'bookings.Booking',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='availability_period'
+    )
+    created_by = models.ForeignKey(
+        'users.CustomUser',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'room_availability'
+        ordering = ['start_date']
+        verbose_name_plural = 'Room Availability Periods'
+
+    def __str__(self):
+        return f"{self.room.name}: {self.status} ({self.start_date} to {self.end_date})"
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+        if self.start_date and self.end_date and self.start_date > self.end_date:
+            raise ValidationError('End date must be after start date')

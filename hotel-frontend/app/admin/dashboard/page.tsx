@@ -6,6 +6,8 @@ import api from '@/lib/api';
 import RoomsManagement from '@/components/admin/RoomsManagement';
 import GalleryManagement from '@/components/admin/GalleryManagement';
 import BookingsManagement from '@/components/admin/BookingsManagement';
+import ContactMessagesManagement from '@/components/admin/ContactMessagesManagement';
+import RoomAvailabilityManagement from '@/components/admin/RoomAvailabilityManagement';
 
 interface User {
   id: number;
@@ -14,7 +16,7 @@ interface User {
   role: string;
 }
 
-type Tab = 'overview' | 'rooms' | 'gallery' | 'bookings';
+type Tab = 'overview' | 'rooms' | 'gallery' | 'bookings' | 'contacts' | 'availability';
 
 export default function AdminDashboard() {
   const router = useRouter();
@@ -25,6 +27,8 @@ export default function AdminDashboard() {
     totalBookings: 0,
     activeBookings: 0,
     totalGalleryImages: 0,
+    totalContacts: 0,
+    unreadContacts: 0,
   });
 
   useEffect(() => {
@@ -49,15 +53,17 @@ export default function AdminDashboard() {
 
   const fetchStats = async () => {
     try {
-      const [roomsRes, bookingsRes, galleryRes] = await Promise.all([
+      const [roomsRes, bookingsRes, galleryRes, contactsRes] = await Promise.all([
         api.get('/rooms/'),
         api.get('/bookings/').catch(() => ({ data: [] })),
         api.get('/gallery/').catch(() => ({ data: [] })),
+        api.get('/contact/').catch(() => ({ data: [] })),
       ]);
 
       const rooms = roomsRes.data.results || roomsRes.data || [];
       const bookings = bookingsRes.data.results || bookingsRes.data || [];
       const gallery = galleryRes.data.results || galleryRes.data || [];
+      const contacts = contactsRes.data.results || contactsRes.data || [];
 
       setStats({
         totalRooms: rooms.length,
@@ -66,6 +72,8 @@ export default function AdminDashboard() {
           b.status === 'CONFIRMED' || b.status === 'PENDING'
         ).length,
         totalGalleryImages: gallery.length,
+        totalContacts: contacts.length,
+        unreadContacts: contacts.filter((c: any) => !c.is_read).length,
       });
     } catch (error) {
       console.error('Error fetching stats:', error);
@@ -115,8 +123,10 @@ export default function AdminDashboard() {
               {[
                 { id: 'overview', label: 'Overview' },
                 { id: 'rooms', label: 'Rooms' },
+                { id: 'availability', label: 'Availability' },
                 { id: 'gallery', label: 'Gallery' },
                 { id: 'bookings', label: 'Bookings' },
+                { id: 'contacts', label: 'Contact Messages' },
               ].map((tab) => (
                 <button
                   key={tab.id}
@@ -136,7 +146,7 @@ export default function AdminDashboard() {
 
         {activeTab === 'overview' && (
           <div>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
               <div className="bg-white rounded-lg shadow p-6">
                 <div className="flex items-center justify-between">
                   <div>
@@ -176,11 +186,24 @@ export default function AdminDashboard() {
                   <div className="text-4xl">🖼️</div>
                 </div>
               </div>
+
+              <div className="bg-white rounded-lg shadow p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-neutral-600 mb-1">Contact Messages</p>
+                    <p className="text-3xl font-bold text-orange-500">{stats.totalContacts}</p>
+                    {stats.unreadContacts > 0 && (
+                      <p className="text-xs text-red-500 mt-1">{stats.unreadContacts} unread</p>
+                    )}
+                  </div>
+                  <div className="text-4xl">✉️</div>
+                </div>
+              </div>
             </div>
 
             <div className="bg-white rounded-lg shadow p-6">
               <h2 className="text-xl font-bold text-neutral-900 mb-4">Quick Access</h2>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <button
                   onClick={() => setActiveTab('rooms')}
                   className="p-4 border-2 border-primary-500 text-primary-500 rounded-lg hover:bg-primary-50 transition-colors text-left"
@@ -202,14 +225,23 @@ export default function AdminDashboard() {
                   <div className="font-medium mb-2">Manage Bookings</div>
                   <div className="text-sm text-neutral-600">View and update customer reservations</div>
                 </button>
+                <button
+                  onClick={() => setActiveTab('contacts')}
+                  className="p-4 border-2 border-orange-500 text-orange-500 rounded-lg hover:bg-orange-50 transition-colors text-left"
+                >
+                  <div className="font-medium mb-2">Contact Messages</div>
+                  <div className="text-sm text-neutral-600">View and manage customer inquiries</div>
+                </button>
               </div>
             </div>
           </div>
         )}
 
         {activeTab === 'rooms' && <RoomsManagement onUpdate={fetchStats} />}
+        {activeTab === 'availability' && <RoomAvailabilityManagement />}
         {activeTab === 'gallery' && <GalleryManagement onUpdate={fetchStats} />}
         {activeTab === 'bookings' && <BookingsManagement onUpdate={fetchStats} />}
+        {activeTab === 'contacts' && <ContactMessagesManagement />}
       </main>
     </div>
   );

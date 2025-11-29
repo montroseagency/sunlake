@@ -16,6 +16,19 @@ export interface RoomImage {
 
 export type RoomType = 'STANDARD' | 'DELUXE' | 'SUITE' | 'PENTHOUSE';
 
+export interface RoomAvailabilityPeriod {
+  id: number;
+  room: number;
+  room_name: string;
+  start_date: string;
+  end_date: string;
+  status: 'BUSY' | 'MAINTENANCE' | 'BLOCKED';
+  status_display: string;
+  notes: string;
+  booking: number | null;
+  created_at: string;
+}
+
 export interface Room {
   id: number;
   name: string;
@@ -29,6 +42,8 @@ export interface Room {
   images: RoomImage[];
   is_active: boolean;
   created_at: string;
+  availability_periods?: RoomAvailabilityPeriod[];
+  is_currently_available?: boolean;
 }
 
 export interface RoomListItem {

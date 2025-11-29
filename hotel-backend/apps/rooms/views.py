@@ -3,10 +3,11 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticatedOrReadOnly, IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
-from apps.rooms.models import Room, Amenity, RoomImage
+from apps.rooms.models import Room, Amenity, RoomImage, RoomAvailability
 from apps.rooms.serializers import (
     RoomListSerializer, RoomDetailSerializer, AmenitySerializer,
-    RoomCreateUpdateSerializer, RoomImageSerializer, RoomImageCreateSerializer
+    RoomCreateUpdateSerializer, RoomImageSerializer, RoomImageCreateSerializer,
+    RoomAvailabilitySerializer
 )
 from apps.bookings.services import BookingService
 from datetime import datetime
@@ -133,3 +134,41 @@ class AmenityViewSet(viewsets.ModelViewSet):
         if self.action in ['list', 'retrieve']:
             return [IsAuthenticatedOrReadOnly()]
         return [IsAdminOrStaff()]
+
+
+class RoomAvailabilityViewSet(viewsets.ModelViewSet):
+    """
+    Admin endpoints for managing room availability/busy periods:
+    - GET /api/room-availability/ - List all availability periods
+    - GET /api/room-availability/?room={room_id} - Filter by room
+    - POST /api/room-availability/ - Create new busy period
+    - PUT/PATCH /api/room-availability/{id}/ - Update busy period
+    - DELETE /api/room-availability/{id}/ - Delete busy period
+    """
+    queryset = RoomAvailability.objects.select_related('room', 'booking')
+    serializer_class = RoomAvailabilitySerializer
+    permission_classes = [IsAdminOrStaff]
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ['room', 'status']
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+
+        # Filter by room
+        room_id = self.request.query_params.get('room')
+        if room_id:
+            queryset = queryset.filter(room_id=room_id)
+
+        # Filter by date range
+        start_date = self.request.query_params.get('start_date')
+        end_date = self.request.query_params.get('end_date')
+
+        if start_date:
+            queryset = queryset.filter(end_date__gte=start_date)
+        if end_date:
+            queryset = queryset.filter(start_date__lte=end_date)
+
+        return queryset
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)

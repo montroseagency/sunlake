@@ -6,6 +6,7 @@ from apps.bookings.models import Booking
 from apps.bookings.serializers import BookingCreateSerializer, BookingSerializer
 from apps.bookings.services import BookingService
 from apps.rooms.views import IsAdminOrStaff
+from apps.rooms.models import RoomAvailability
 from datetime import datetime
 
 
@@ -66,6 +67,21 @@ class BookingViewSet(viewsets.ModelViewSet):
         # Regular users see only their bookings
         return super().get_queryset().filter(guest=user)
 
+    def perform_create(self, serializer):
+        """Create booking and automatically create busy period"""
+        booking = serializer.save()
+
+        # Auto-create busy period for confirmed bookings
+        if booking.status in ['CONFIRMED', 'PENDING']:
+            RoomAvailability.objects.create(
+                room=booking.room,
+                start_date=booking.check_in_date,
+                end_date=booking.check_out_date,
+                status='BUSY',
+                booking=booking,
+                notes=f'Auto-created for booking #{booking.id}'
+            )
+
     @action(detail=False, methods=['get'], permission_classes=[AllowAny])
     def check_availability(self, request):
         """Check if a room is available for given dates"""
@@ -111,6 +127,7 @@ class BookingViewSet(viewsets.ModelViewSet):
     def update_status(self, request, pk=None):
         """Update booking status"""
         booking = self.get_object()
+        old_status = booking.status
         new_status = request.data.get('status')
 
         if new_status not in dict(Booking.Status.choices):
@@ -121,6 +138,23 @@ class BookingViewSet(viewsets.ModelViewSet):
 
         booking.status = new_status
         booking.save()
+
+        # Handle room availability based on status changes
+        if new_status == 'CANCELLED' and hasattr(booking, 'availability_period'):
+            # Delete busy period if booking is cancelled
+            booking.availability_period.all().delete()
+        elif new_status in ['CONFIRMED', 'PENDING'] and old_status == 'CANCELLED':
+            # Re-create busy period if booking is reactivated
+            RoomAvailability.objects.get_or_create(
+                room=booking.room,
+                start_date=booking.check_in_date,
+                end_date=booking.check_out_date,
+                defaults={
+                    'status': 'BUSY',
+                    'booking': booking,
+                    'notes': f'Auto-created for booking #{booking.id}'
+                }
+            )
 
         serializer = self.get_serializer(booking)
         return Response(serializer.data)

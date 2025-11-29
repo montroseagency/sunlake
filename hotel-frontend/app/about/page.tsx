@@ -46,10 +46,10 @@ export default function AboutPage() {
       </section>
 
       {/* Our Story */}
-      <section className="py-16 bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50">
+      <section className="py-16 bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50 overflow-hidden">
         <div className="container mx-auto px-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
-            <div>
+            <div className="animate-slideInLeft">
               <h2 className="text-4xl font-display font-bold mb-6">Our Story</h2>
               <p className="text-neutral-700 leading-relaxed mb-4">
                 Founded in 2010, Sunlake Hotel has been a beacon of luxury and hospitality in the heart of the city.
@@ -66,16 +66,48 @@ export default function AboutPage() {
                 with timeless elegance to offer an unparalleled hospitality experience.
               </p>
             </div>
-            <div className="relative h-96">
+            <div className="relative h-96 animate-slideInRight group">
+              <div className="absolute inset-0 bg-gradient-to-r from-primary-500 to-amber-500 rounded-lg transform rotate-3 group-hover:rotate-6 transition-transform duration-500"></div>
               <Image
                 src="https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800"
                 alt="Hotel Building"
                 fill
-                className="object-cover rounded-lg shadow-xl"
+                className="object-cover rounded-lg shadow-xl relative z-10 transform group-hover:scale-105 transition-transform duration-500"
               />
             </div>
           </div>
         </div>
+        <style jsx>{`
+          @keyframes slideInLeft {
+            from {
+              opacity: 0;
+              transform: translateX(-100px);
+            }
+            to {
+              opacity: 1;
+              transform: translateX(0);
+            }
+          }
+
+          @keyframes slideInRight {
+            from {
+              opacity: 0;
+              transform: translateX(100px);
+            }
+            to {
+              opacity: 1;
+              transform: translateX(0);
+            }
+          }
+
+          .animate-slideInLeft {
+            animation: slideInLeft 0.8s ease-out;
+          }
+
+          .animate-slideInRight {
+            animation: slideInRight 0.8s ease-out;
+          }
+        `}</style>
       </section>
 
       {/* Our Values */}
@@ -166,14 +198,12 @@ export default function AboutPage() {
         <div className="container mx-auto px-4 relative z-10">
           {/* Header Section with Better Typography */}
           <div className="text-center mb-16">
-            <h2 className="text-5xl md:text-6xl font-display font-bold mb-6 bg-gradient-to-r from-primary-600 via-primary-500 to-amber-600 bg-clip-text text-transparent leading-tight">
+            <h2 className="text-5xl md:text-6xl font-display font-bold mb-6 text-neutral-900 leading-tight">
               Why Choose Sunlake Hotel
             </h2>
             <div className="w-32 h-1 bg-gradient-to-r from-primary-500 to-amber-500 mx-auto mb-6 rounded-full"></div>
-            <p className="text-xl md:text-2xl text-neutral-700 max-w-4xl mx-auto leading-relaxed font-light">
-              Experience the perfect blend of <span className="font-semibold text-primary-600">luxury</span>,
-              <span className="font-semibold text-primary-600"> comfort</span>, and
-              <span className="font-semibold text-primary-600"> exceptional service</span> that sets us apart from the rest.
+            <p className="text-xl md:text-2xl text-neutral-900 max-w-4xl mx-auto leading-relaxed font-light">
+              Experience the perfect blend of luxury, comfort, and exceptional service that sets us apart from the rest.
             </p>
           </div>
 
