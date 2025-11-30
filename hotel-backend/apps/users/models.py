@@ -9,11 +9,12 @@ class CustomUser(AbstractUser):
         ADMIN = 'ADMIN', 'Administrator'
         STAFF = 'STAFF', 'Staff'
         GUEST = 'GUEST', 'Guest'
+        CUSTOMER = 'CUSTOMER', 'Customer'
 
     role = models.CharField(
         max_length=10,
         choices=Role.choices,
-        default=Role.GUEST
+        default=Role.CUSTOMER
     )
     phone = models.CharField(max_length=20, blank=True)
 

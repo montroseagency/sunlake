@@ -123,6 +123,13 @@ class BookingViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
+    @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated], url_path='my-bookings')
+    def my_bookings(self, request):
+        """Get bookings for the authenticated user"""
+        bookings = Booking.objects.filter(guest=request.user).select_related('room').prefetch_related('room__images').order_by('-created_at')
+        serializer = self.get_serializer(bookings, many=True)
+        return Response(serializer.data)
+
     @action(detail=True, methods=['patch'], permission_classes=[IsAdminOrStaff])
     def update_status(self, request, pk=None):
         """Update booking status"""

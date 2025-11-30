@@ -71,6 +71,10 @@ class RoomImage(models.Model):
         # Ensure only one primary image per room
         if self.is_primary:
             RoomImage.objects.filter(room=self.room, is_primary=True).update(is_primary=False)
+        else:
+            # If this is the first image for the room, make it primary
+            if not self.pk and not RoomImage.objects.filter(room=self.room).exists():
+                self.is_primary = True
         super().save(*args, **kwargs)
 
     def __str__(self):

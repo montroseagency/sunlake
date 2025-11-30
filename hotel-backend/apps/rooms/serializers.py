@@ -28,7 +28,7 @@ class RoomImageSerializer(serializers.ModelSerializer):
 class RoomImageCreateSerializer(serializers.ModelSerializer):
     """Serializer for creating/updating room images"""
     image = serializers.ImageField(required=False, allow_null=True)
-    image_url = serializers.URLField(required=False, allow_blank=True)
+    image_url = serializers.URLField(required=False, allow_blank=True, allow_null=True)
 
     class Meta:
         model = RoomImage
@@ -36,8 +36,13 @@ class RoomImageCreateSerializer(serializers.ModelSerializer):
 
     def validate(self, data):
         """Ensure either image or image_url is provided"""
-        if not data.get('image') and not data.get('image_url'):
+        image = data.get('image')
+        image_url = data.get('image_url')
+
+        # Check if at least one is provided and not empty
+        if not image and not image_url:
             raise serializers.ValidationError('Either image file or image_url must be provided')
+
         return data
 
 
@@ -54,8 +59,23 @@ class RoomListSerializer(serializers.ModelSerializer):
         ]
 
     def get_primary_image(self, obj):
+        # Try to get primary image first
         image = obj.images.filter(is_primary=True).first()
-        return image.image_url if image else None
+
+        # If no primary image, get the first image
+        if not image:
+            image = obj.images.first()
+
+        if not image:
+            return None
+
+        # Return the full URL - prefer uploaded image, fallback to image_url
+        request = self.context.get('request')
+        if image.image:
+            if request:
+                return request.build_absolute_uri(image.image.url)
+            return image.image.url
+        return image.image_url
 
 
 class RoomDetailSerializer(serializers.ModelSerializer):
@@ -104,10 +124,11 @@ class RoomCreateUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Room
         fields = [
-            'id', 'name', 'description', 'room_type',
+            'id', 'name', 'slug', 'description', 'room_type',
             'capacity', 'size_sqm', 'base_price_per_night',
             'amenities', 'is_active'
         ]
+        read_only_fields = ['slug']
 
     def create(self, validated_data):
         amenities = validated_data.pop('amenities', [])

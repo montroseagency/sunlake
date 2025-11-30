@@ -87,44 +87,98 @@ export default function RoomsManagement({ onUpdate }: Props) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    console.log('===== FORM SUBMIT START =====');
+    console.log('formImages array:', formImages);
+    console.log('formImages length:', formImages.length);
+    console.log('Is editing?', !!editingRoom);
+
     try {
       let roomSlug = editingRoom?.slug;
+      const isNewRoom = !editingRoom;
+
+      // Prepare data for submission - convert empty strings to null for numeric fields
+      const submitData = {
+        ...formData,
+        size_sqm: formData.size_sqm === '' ? null : formData.size_sqm,
+        base_price_per_night: formData.base_price_per_night === '' ? null : formData.base_price_per_night,
+      };
 
       if (editingRoom) {
-        await api.patch(`/rooms/${editingRoom.slug}/`, formData);
+        console.log('Updating existing room:', editingRoom.slug);
+        await api.patch(`/rooms/${editingRoom.slug}/`, submitData);
       } else {
-        const response = await api.post('/rooms/', formData);
+        console.log('Creating new room...');
+        const response = await api.post('/rooms/', submitData);
         roomSlug = response.data.slug;
+        console.log('Created room response:', response.data);
+        console.log('Created room with slug:', roomSlug);
       }
 
       // Upload images if any were added
+      console.log('Checking images to upload...');
+      console.log('formImages.length:', formImages.length);
+      console.log('roomSlug:', roomSlug);
+      console.log('Should upload?', formImages.length > 0 && roomSlug);
+
       if (formImages.length > 0 && roomSlug) {
-        for (const img of formImages) {
+        console.log('Starting image upload loop for', formImages.length, 'images');
+        for (let i = 0; i < formImages.length; i++) {
+          const img = formImages[i];
+          console.log(`Processing image ${i}:`, img);
+
+          // Skip images that have neither file nor URL
+          if (!img.file && !img.url) {
+            console.warn('Image has neither file nor URL! Skipping...', img);
+            continue;
+          }
+
           const imageFormData = new FormData();
 
           if (img.file) {
             imageFormData.append('image', img.file);
+            console.log('Uploading file:', img.file.name, 'size:', img.file.size);
           } else if (img.url) {
             imageFormData.append('image_url', img.url);
+            console.log('Uploading URL:', img.url);
           }
 
-          imageFormData.append('alt_text', img.alt || '');
-          imageFormData.append('is_primary', 'false');
-          imageFormData.append('order', '0');
+          if (img.alt) {
+            imageFormData.append('alt_text', img.alt);
+          }
 
-          await api.post(`/rooms/${roomSlug}/add_image/`, imageFormData, {
-            headers: { 'Content-Type': 'multipart/form-data' },
-          });
+          // Mark first image as primary if this is a new room
+          const isPrimary = (isNewRoom && i === 0) ? 'true' : 'false';
+          imageFormData.append('is_primary', isPrimary);
+          imageFormData.append('order', i.toString());
+
+          console.log(`Uploading image ${i} to /rooms/${roomSlug}/add_image/ as primary:`, isPrimary);
+
+          try {
+            const uploadResponse = await api.post(`/rooms/${roomSlug}/add_image/`, imageFormData, {
+              headers: { 'Content-Type': 'multipart/form-data' },
+            });
+            console.log(`Image ${i} uploaded successfully:`, uploadResponse.data);
+          } catch (imgError: any) {
+            console.error(`Failed to upload image ${i}:`, imgError);
+            console.error('Error response:', imgError.response?.data);
+            throw imgError;
+          }
         }
+        console.log('All images uploaded successfully');
+      } else {
+        console.log('Skipping image upload - no images or no slug');
       }
 
+      console.log('===== FORM SUBMIT SUCCESS =====');
       fetchRooms();
       onUpdate();
       resetForm();
-      alert(editingRoom ? 'Room updated successfully!' : 'Room created successfully!');
+      alert(editingRoom ? 'Room updated successfully!' : 'Room and images created successfully!');
     } catch (error: any) {
+      console.error('===== FORM SUBMIT ERROR =====');
       console.error('Error saving room:', error);
-      alert(error.response?.data?.detail || 'Error saving room');
+      console.error('Error response:', error.response?.data);
+      alert(error.response?.data?.detail || error.response?.data?.message || 'Error saving room');
     }
   };
 
@@ -231,6 +285,11 @@ export default function RoomsManagement({ onUpdate }: Props) {
   };
 
   const handleAddFormImage = () => {
+    console.log('handleAddFormImage called');
+    console.log('uploadMethod:', uploadMethod);
+    console.log('newImageFile:', newImageFile);
+    console.log('newImageUrl:', newImageUrl);
+
     if (uploadMethod === 'file' && !newImageFile) {
       alert('Please select an image file');
       return;
@@ -244,10 +303,12 @@ export default function RoomsManagement({ onUpdate }: Props) {
       ? { file: newImageFile!, alt: newImageAlt }
       : { url: newImageUrl, alt: newImageAlt };
 
+    console.log('Adding image to formImages:', newImage);
     setFormImages([...formImages, newImage]);
     setNewImageFile(null);
     setNewImageUrl('');
     setNewImageAlt('');
+    console.log('Image added! formImages will be:', [...formImages, newImage]);
   };
 
   const handleRemoveFormImage = (index: number) => {
@@ -407,9 +468,20 @@ export default function RoomsManagement({ onUpdate }: Props) {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-neutral-700 mb-2">
-                Images {formImages.length > 0 && `(${formImages.length})`}
-              </label>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-sm font-medium text-neutral-700">
+                  Room Images {formImages.length > 0 && (
+                    <span className="ml-2 px-2 py-0.5 bg-green-100 text-green-800 text-xs font-semibold rounded">
+                      {formImages.length} image{formImages.length !== 1 ? 's' : ''} ready to upload
+                    </span>
+                  )}
+                </label>
+                {!editingRoom && formImages.length === 0 && (
+                  <span className="text-xs text-orange-600 font-medium">
+                    Click "Add Image" button after selecting a file
+                  </span>
+                )}
+              </div>
 
               {formImages.length > 0 && (
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">

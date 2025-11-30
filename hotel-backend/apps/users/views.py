@@ -42,16 +42,30 @@ class LoginView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
+        email = request.data.get('email')
         username = request.data.get('username')
         password = request.data.get('password')
 
-        if not username or not password:
+        # Accept either email or username
+        login_identifier = email or username
+
+        if not login_identifier or not password:
             return Response(
-                {'detail': 'Username and password are required'},
+                {'detail': 'Email/username and password are required'},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        user = authenticate(username=username, password=password)
+        # Try to authenticate with email first, then username
+        user = None
+        if email:
+            try:
+                user_obj = CustomUser.objects.get(email=email)
+                user = authenticate(username=user_obj.username, password=password)
+            except CustomUser.DoesNotExist:
+                pass
+
+        if user is None and username:
+            user = authenticate(username=username, password=password)
 
         if user is None:
             return Response(
@@ -72,6 +86,7 @@ class LoginView(APIView):
                 'role': user.role,
                 'first_name': user.first_name,
                 'last_name': user.last_name,
+                'phone': user.phone,
             }
         })
 
