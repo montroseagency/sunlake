@@ -2,6 +2,7 @@ from rest_framework import serializers
 from apps.bookings.models import Booking, SeasonalPrice
 from apps.bookings.services import BookingService
 from apps.rooms.serializers import RoomListSerializer
+from datetime import date
 
 
 class BookingCreateSerializer(serializers.ModelSerializer):
@@ -16,16 +17,39 @@ class BookingCreateSerializer(serializers.ModelSerializer):
         ]
 
     def validate(self, data):
-        # Check availability
+        check_in = data['check_in_date']
+        check_out = data['check_out_date']
+        room = data['room']
+        number_of_guests = data.get('number_of_guests', 1)
+
+        # Validate dates are in the future
+        if check_in < date.today():
+            raise serializers.ValidationError({
+                'check_in_date': 'Check-in date cannot be in the past'
+            })
+
+        # Validate check-out is after check-in
+        if check_out <= check_in:
+            raise serializers.ValidationError({
+                'check_out_date': 'Check-out date must be after check-in date'
+            })
+
+        # Validate room capacity
+        if number_of_guests > room.capacity:
+            raise serializers.ValidationError({
+                'number_of_guests': f'This room can only accommodate {room.capacity} guest(s). You selected {number_of_guests}.'
+            })
+
+        # Check if room is available (no conflicting bookings or blocked periods)
         available = BookingService.check_availability(
-            data['room'].id,
-            data['check_in_date'],
-            data['check_out_date']
+            room.id,
+            check_in,
+            check_out
         )
 
         if not available:
             raise serializers.ValidationError({
-                'room': 'This room is not available for the selected dates'
+                'room': 'This room is not available for the selected dates. It may already be booked or blocked for maintenance.'
             })
 
         return data
