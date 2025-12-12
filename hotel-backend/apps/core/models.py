@@ -1,4 +1,29 @@
 from django.db import models
+from django.utils.text import slugify
+
+
+class GalleryCategory(models.Model):
+    """Dynamic categories for gallery images"""
+    name = models.CharField(max_length=100, unique=True)
+    slug = models.SlugField(max_length=100, unique=True, blank=True)
+    description = models.TextField(blank=True)
+    order = models.PositiveIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'gallery_categories'
+        ordering = ['order', 'name']
+        verbose_name_plural = 'Gallery Categories'
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = slugify(self.name)
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.name
 
 
 class ContactMessage(models.Model):
@@ -22,22 +47,14 @@ class ContactMessage(models.Model):
 
 class GalleryImage(models.Model):
     """Gallery images for the hotel"""
-    title = models.CharField(max_length=200)
-    description = models.TextField(blank=True)
+    category = models.ForeignKey(
+        GalleryCategory,
+        on_delete=models.CASCADE,
+        related_name='images'
+    )
     image = models.ImageField(upload_to='gallery_images/', null=True, blank=True)
     image_url = models.URLField(max_length=500, blank=True)  # Optional URL fallback
-    category = models.CharField(
-        max_length=50,
-        choices=[
-            ('HOTEL', 'Hotel'),
-            ('ROOM', 'Room'),
-            ('DINING', 'Dining'),
-            ('FACILITIES', 'Facilities'),
-            ('EVENTS', 'Events'),
-            ('OTHER', 'Other'),
-        ],
-        default='OTHER'
-    )
+    alt_text = models.CharField(max_length=200, blank=True, help_text="Alternative text for accessibility")
     order = models.PositiveIntegerField(default=0)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -45,10 +62,10 @@ class GalleryImage(models.Model):
 
     class Meta:
         db_table = 'gallery_images'
-        ordering = ['order', '-created_at']
+        ordering = ['category', 'order', '-created_at']
 
     def __str__(self):
-        return self.title
+        return f"{self.category.name} - Image {self.id}"
 
     @property
     def get_image(self):

@@ -50,12 +50,16 @@ class RoomListSerializer(serializers.ModelSerializer):
     """Lightweight serializer for room listings"""
     primary_image = serializers.SerializerMethodField()
     amenities = AmenitySerializer(many=True, read_only=True)
+    view_type_display = serializers.CharField(source='get_view_type_display', read_only=True)
+    bed_configuration_display = serializers.CharField(source='get_bed_configuration_display', read_only=True)
 
     class Meta:
         model = Room
         fields = [
-            'id', 'name', 'slug', 'room_type', 'capacity',
-            'base_price_per_night', 'primary_image', 'amenities'
+            'id', 'name', 'slug', 'room_type', 'capacity', 'max_occupancy',
+            'bed_configuration', 'bed_configuration_display', 'number_of_beds',
+            'size_sqm', 'view_type', 'view_type_display', 'has_balcony',
+            'base_price_per_night', 'primary_image', 'amenities', 'wheelchair_accessible'
         ]
 
     def get_primary_image(self, obj):
@@ -85,11 +89,47 @@ class RoomDetailSerializer(serializers.ModelSerializer):
     availability_periods = serializers.SerializerMethodField()
     is_currently_available = serializers.SerializerMethodField()
 
+    # Display fields for choice fields
+    room_type_display = serializers.CharField(source='get_room_type_display', read_only=True)
+    view_type_display = serializers.CharField(source='get_view_type_display', read_only=True)
+    bed_configuration_display = serializers.CharField(source='get_bed_configuration_display', read_only=True)
+    smoking_policy_display = serializers.CharField(source='get_smoking_policy_display', read_only=True)
+    pet_policy_display = serializers.CharField(source='get_pet_policy_display', read_only=True)
+
     class Meta:
         model = Room
         fields = [
-            'id', 'name', 'slug', 'description', 'room_type',
-            'capacity', 'size_sqm', 'base_price_per_night',
+            # Basic Info
+            'id', 'name', 'slug', 'description', 'room_type', 'room_type_display',
+
+            # Bed & Capacity
+            'capacity', 'max_occupancy', 'bed_configuration', 'bed_configuration_display',
+            'number_of_beds', 'size_sqm', 'base_price_per_night',
+
+            # In-Room Features
+            'wifi', 'air_conditioning', 'tv', 'telephone', 'work_desk',
+            'storage', 'safe', 'minibar', 'coffee_maker', 'iron_board',
+
+            # Bathroom
+            'bathroom_features',
+
+            # View & Perks
+            'view_type', 'view_type_display', 'has_balcony', 'is_soundproof', 'special_perks',
+
+            # Accessibility
+            'wheelchair_accessible', 'accessible_bathroom',
+
+            # Media
+            'virtual_tour_url',
+
+            # Policies
+            'check_in_time', 'check_out_time', 'smoking_policy', 'smoking_policy_display',
+            'pet_policy', 'pet_policy_display',
+
+            # Optional Extras
+            'has_kitchenette', 'has_seating_area',
+
+            # Legacy & Metadata
             'images', 'amenities', 'is_active', 'created_at',
             'availability_periods', 'is_currently_available'
         ]
@@ -124,8 +164,36 @@ class RoomCreateUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Room
         fields = [
+            # Basic Info
             'id', 'name', 'slug', 'description', 'room_type',
-            'capacity', 'size_sqm', 'base_price_per_night',
+
+            # Bed & Capacity
+            'capacity', 'max_occupancy', 'bed_configuration', 'number_of_beds',
+            'size_sqm', 'base_price_per_night',
+
+            # In-Room Features
+            'wifi', 'air_conditioning', 'tv', 'telephone', 'work_desk',
+            'storage', 'safe', 'minibar', 'coffee_maker', 'iron_board',
+
+            # Bathroom
+            'bathroom_features',
+
+            # View & Perks
+            'view_type', 'has_balcony', 'is_soundproof', 'special_perks',
+
+            # Accessibility
+            'wheelchair_accessible', 'accessible_bathroom',
+
+            # Media
+            'virtual_tour_url',
+
+            # Policies
+            'check_in_time', 'check_out_time', 'smoking_policy', 'pet_policy',
+
+            # Optional Extras
+            'has_kitchenette', 'has_seating_area',
+
+            # Legacy & Metadata
             'amenities', 'is_active'
         ]
         read_only_fields = ['slug']

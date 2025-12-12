@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import AuthModal from '@/components/auth/AuthModal';
 
@@ -72,11 +73,15 @@ export default function Navbar() {
       <div className="container mx-auto px-4">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
-          <Link href="/" className="flex items-center space-x-2">
-            <div className="text-2xl">🏨</div>
-            <span className="text-2xl font-display font-bold text-primary-500">
-              Sunlake Hotel
-            </span>
+          <Link href="/" className="flex items-center">
+            <Image
+              src="/sunlakelogo.png"
+              alt="Sunlake Hotel"
+              width={150}
+              height={60}
+              className="h-12 w-auto"
+              priority
+            />
           </Link>
 
           {/* Desktop Navigation */}

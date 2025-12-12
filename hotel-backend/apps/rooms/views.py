@@ -3,6 +3,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticatedOrReadOnly, IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
+from django.db import models
 from apps.rooms.models import Room, Amenity, RoomImage, RoomAvailability
 from apps.rooms.serializers import (
     RoomListSerializer, RoomDetailSerializer, AmenitySerializer,
@@ -116,6 +117,93 @@ class RoomViewSet(viewsets.ModelViewSet):
                 {'error': 'Image not found'},
                 status=status.HTTP_404_NOT_FOUND
             )
+
+    @action(detail=True, methods=['post'], permission_classes=[IsAdminOrStaff])
+    def bulk_add_images(self, request, slug=None):
+        """Add multiple images to a room at once"""
+        room = self.get_object()
+        images_data = []
+        errors = []
+
+        # Handle multiple file uploads
+        files = request.FILES.getlist('images')  # For file uploads
+        urls = request.data.getlist('image_urls')  # For URL uploads
+
+        # Get starting order value (next highest order)
+        max_order = room.images.aggregate(models.Max('order'))['order__max'] or 0
+        current_order = max_order + 1
+
+        # Process file uploads
+        for idx, file in enumerate(files):
+            data = {
+                'room': room.id,
+                'image': file,
+                'order': current_order + idx
+            }
+            serializer = RoomImageCreateSerializer(data=data, context={'request': request})
+            if serializer.is_valid():
+                serializer.save()
+                images_data.append(serializer.data)
+            else:
+                errors.append({'file': file.name, 'errors': serializer.errors})
+
+        # Process URL uploads
+        for idx, url in enumerate(urls):
+            if url:  # Skip empty URLs
+                data = {
+                    'room': room.id,
+                    'image_url': url,
+                    'order': current_order + len(files) + idx
+                }
+                serializer = RoomImageCreateSerializer(data=data, context={'request': request})
+                if serializer.is_valid():
+                    serializer.save()
+                    images_data.append(serializer.data)
+                else:
+                    errors.append({'url': url, 'errors': serializer.errors})
+
+        return Response({
+            'success': images_data,
+            'errors': errors,
+            'total_uploaded': len(images_data),
+            'total_errors': len(errors)
+        }, status=status.HTTP_201_CREATED if images_data else status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=True, methods=['patch'], permission_classes=[IsAdminOrStaff])
+    def reorder_images(self, request, slug=None):
+        """Reorder room images. Expects array of {id, order} objects"""
+        room = self.get_object()
+        image_orders = request.data.get('images', [])
+
+        if not isinstance(image_orders, list):
+            return Response(
+                {'error': 'Expected "images" to be an array of {id, order} objects'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        updated_count = 0
+        errors = []
+
+        for item in image_orders:
+            image_id = item.get('id')
+            new_order = item.get('order')
+
+            if image_id is None or new_order is None:
+                errors.append({'error': 'Each item must have "id" and "order"', 'item': item})
+                continue
+
+            try:
+                image = RoomImage.objects.get(id=image_id, room=room)
+                image.order = new_order
+                image.save(update_fields=['order'])
+                updated_count += 1
+            except RoomImage.DoesNotExist:
+                errors.append({'error': 'Image not found', 'id': image_id})
+
+        return Response({
+            'updated': updated_count,
+            'errors': errors
+        }, status=status.HTTP_200_OK if updated_count > 0 else status.HTTP_400_BAD_REQUEST)
 
 
 class RoomImageViewSet(viewsets.ModelViewSet):

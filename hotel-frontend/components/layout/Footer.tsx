@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 
 export default function Footer() {
   const currentYear = new Date().getFullYear();
@@ -9,7 +10,13 @@ export default function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           {/* About */}
           <div>
-            <h3 className="text-white font-display font-bold text-xl mb-4">Sunlake Hotel</h3>
+            <Image
+              src="/sunlakelogo.png"
+              alt="Sunlake Hotel"
+              width={150}
+              height={60}
+              className="h-12 w-auto mb-4 brightness-0 invert"
+            />
             <p className="text-sm leading-relaxed">
               Experience luxury and comfort at our premier hotel. Your perfect stay awaits.
             </p>

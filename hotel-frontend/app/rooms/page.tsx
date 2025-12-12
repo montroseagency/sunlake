@@ -21,10 +21,14 @@ export default function RoomsPage() {
   const [minPrice, setMinPrice] = useState('');
   const [maxPrice, setMaxPrice] = useState('');
   const [roomType, setRoomType] = useState('');
+  const [viewType, setViewType] = useState('');
+  const [bedType, setBedType] = useState('');
+  const [accessibilityFilter, setAccessibilityFilter] = useState(false);
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
 
   useEffect(() => {
     fetchRooms();
-  }, [checkIn, checkOut, capacity, minPrice, maxPrice, roomType]);
+  }, [checkIn, checkOut, capacity, minPrice, maxPrice, roomType, viewType, bedType, accessibilityFilter]);
 
   const fetchRooms = async () => {
     setLoading(true);
@@ -39,13 +43,38 @@ export default function RoomsPage() {
       if (roomType) params.append('room_type', roomType);
 
       const response = await api.get(`/rooms/?${params.toString()}`);
-      setRooms(response.data.results || response.data);
+      let fetchedRooms = response.data.results || response.data;
+
+      // Client-side filtering for new fields (backend may not support these yet)
+      if (viewType) {
+        fetchedRooms = fetchedRooms.filter((room: any) => room.view_type === viewType);
+      }
+      if (bedType) {
+        fetchedRooms = fetchedRooms.filter((room: any) => room.bed_configuration === bedType);
+      }
+      if (accessibilityFilter) {
+        fetchedRooms = fetchedRooms.filter((room: any) => room.wheelchair_accessible === true);
+      }
+
+      setRooms(fetchedRooms);
     } catch (err) {
       console.error('Failed to fetch rooms:', err);
       setError('Failed to load rooms. Please try again.');
     } finally {
       setLoading(false);
     }
+  };
+
+  const clearAllFilters = () => {
+    setCheckIn('');
+    setCheckOut('');
+    setCapacity('');
+    setMinPrice('');
+    setMaxPrice('');
+    setRoomType('');
+    setViewType('');
+    setBedType('');
+    setAccessibilityFilter(false);
   };
 
   const fetchRoomDetails = async (slug: string) => {
@@ -132,7 +161,7 @@ export default function RoomsPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
             <div>
               <label className="block text-sm font-medium text-neutral-700 mb-1">Min Price</label>
               <input
@@ -154,6 +183,76 @@ export default function RoomsPage() {
               />
             </div>
           </div>
+
+          {/* Advanced Filters Toggle */}
+          <button
+            onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+            className="text-primary-500 hover:text-primary-600 font-medium text-sm mb-4 flex items-center gap-2"
+          >
+            {showAdvancedFilters ? '− Hide Advanced Filters' : '+ Show Advanced Filters'}
+          </button>
+
+          {/* Advanced Filters */}
+          {showAdvancedFilters && (
+            <div className="border-t border-neutral-200 pt-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                <div>
+                  <label className="block text-sm font-medium text-neutral-700 mb-1">View Type</label>
+                  <select
+                    value={viewType}
+                    onChange={(e) => setViewType(e.target.value)}
+                    className="w-full px-4 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                  >
+                    <option value="">Any View</option>
+                    <option value="CITY">City View</option>
+                    <option value="SEA">Sea View</option>
+                    <option value="GARDEN">Garden View</option>
+                    <option value="MOUNTAIN">Mountain View</option>
+                    <option value="POOL">Pool View</option>
+                    <option value="COURTYARD">Courtyard View</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-neutral-700 mb-1">Bed Type</label>
+                  <select
+                    value={bedType}
+                    onChange={(e) => setBedType(e.target.value)}
+                    className="w-full px-4 py-2 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                  >
+                    <option value="">Any Bed</option>
+                    <option value="SINGLE">Single</option>
+                    <option value="TWIN">Twin</option>
+                    <option value="DOUBLE">Double</option>
+                    <option value="QUEEN">Queen</option>
+                    <option value="KING">King</option>
+                  </select>
+                </div>
+                <div className="flex items-end">
+                  <label className="flex items-center h-[42px]">
+                    <input
+                      type="checkbox"
+                      checked={accessibilityFilter}
+                      onChange={(e) => setAccessibilityFilter(e.target.checked)}
+                      className="mr-2 h-4 w-4 text-primary-500 border-neutral-300 rounded focus:ring-primary-500"
+                    />
+                    <span className="text-sm font-medium text-neutral-700">Wheelchair Accessible Only</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Clear Filters */}
+          {(checkIn || checkOut || capacity || minPrice || maxPrice || roomType || viewType || bedType || accessibilityFilter) && (
+            <div className="border-t border-neutral-200 pt-4 mt-4">
+              <button
+                onClick={clearAllFilters}
+                className="text-sm text-neutral-600 hover:text-neutral-800 underline"
+              >
+                Clear all filters
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Error Message */}
@@ -176,14 +275,7 @@ export default function RoomsPage() {
           <div className="text-center py-12">
             <p className="text-lg text-neutral-600">No rooms found matching your criteria.</p>
             <button
-              onClick={() => {
-                setCheckIn('');
-                setCheckOut('');
-                setCapacity('');
-                setMinPrice('');
-                setMaxPrice('');
-                setRoomType('');
-              }}
+              onClick={clearAllFilters}
               className="mt-4 text-primary-500 hover:underline"
             >
               Clear filters
@@ -213,18 +305,32 @@ export default function RoomsPage() {
                     </span>
                   </div>
 
-                  <p className="text-neutral-600 mb-4">
-                    Up to {room.capacity} guest{room.capacity > 1 ? 's' : ''}
-                  </p>
+                  {/* Bed and Capacity Info */}
+                  <div className="mb-3">
+                    <p className="text-neutral-600 text-sm">
+                      {room.bed_configuration && `${room.bed_configuration} Bed`}
+                      {room.bed_configuration && room.max_occupancy && ' • '}
+                      Up to {room.max_occupancy || room.capacity} guest{(room.max_occupancy || room.capacity) > 1 ? 's' : ''}
+                    </p>
+                    {room.view_type && room.view_type !== 'NO_VIEW' && (
+                      <p className="text-xs text-neutral-500 mt-1">
+                        {room.view_type.replace('_', ' ')} View
+                      </p>
+                    )}
+                  </div>
 
+                  {/* Quick Features */}
                   <div className="flex flex-wrap gap-2 mb-4">
-                    {room.amenities.slice(0, 3).map((amenity) => (
+                    {room.wifi && <span className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded">WiFi</span>}
+                    {room.air_conditioning && <span className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded">A/C</span>}
+                    {room.wheelchair_accessible && <span className="text-xs bg-green-50 text-green-700 px-2 py-1 rounded">♿ Accessible</span>}
+                    {room.amenities.slice(0, 2).map((amenity) => (
                       <span key={amenity.id} className="text-xs bg-neutral-100 text-neutral-700 px-2 py-1 rounded">
                         {amenity.name}
                       </span>
                     ))}
-                    {room.amenities.length > 3 && (
-                      <span className="text-xs text-neutral-500">+{room.amenities.length - 3} more</span>
+                    {room.amenities.length > 2 && (
+                      <span className="text-xs text-neutral-500">+{room.amenities.length - 2} more</span>
                     )}
                   </div>
 
@@ -439,28 +545,233 @@ export default function RoomsPage() {
                       {/* Details */}
                       <div className="space-y-4 mb-6 pb-6 border-b border-neutral-200">
                         <div className="flex justify-between items-center">
-                          <span className="text-neutral-600">Capacity</span>
-                          <span className="font-semibold text-neutral-900">{selectedRoom.capacity} Guest{selectedRoom.capacity > 1 ? 's' : ''}</span>
+                          <span className="text-neutral-600">Max Occupancy</span>
+                          <span className="font-semibold text-neutral-900">{selectedRoom.max_occupancy || selectedRoom.capacity} Guest{(selectedRoom.max_occupancy || selectedRoom.capacity) > 1 ? 's' : ''}</span>
                         </div>
+                        {selectedRoom.bed_configuration && (
+                          <div className="flex justify-between items-center">
+                            <span className="text-neutral-600">Bed Configuration</span>
+                            <span className="font-semibold text-neutral-900">
+                              {selectedRoom.number_of_beds || 1} {selectedRoom.bed_configuration_display || selectedRoom.bed_configuration} {(selectedRoom.number_of_beds || 1) > 1 ? 'Beds' : 'Bed'}
+                            </span>
+                          </div>
+                        )}
                         {selectedRoom.size_sqm && (
                           <div className="flex justify-between items-center">
                             <span className="text-neutral-600">Room Size</span>
                             <span className="font-semibold text-neutral-900">{selectedRoom.size_sqm} m²</span>
                           </div>
                         )}
+                        {selectedRoom.view_type && selectedRoom.view_type !== 'NO_VIEW' && (
+                          <div className="flex justify-between items-center">
+                            <span className="text-neutral-600">View</span>
+                            <span className="font-semibold text-neutral-900">{selectedRoom.view_type_display || selectedRoom.view_type.replace('_', ' ')}</span>
+                          </div>
+                        )}
+                        {selectedRoom.check_in_time && selectedRoom.check_out_time && (
+                          <div className="flex justify-between items-center">
+                            <span className="text-neutral-600">Check-in / Check-out</span>
+                            <span className="font-semibold text-neutral-900">{selectedRoom.check_in_time} / {selectedRoom.check_out_time}</span>
+                          </div>
+                        )}
                       </div>
 
                       {/* Description */}
-                      <div className="mb-6">
+                      <div className="mb-6 pb-6 border-b border-neutral-200">
+                        <h3 className="font-semibold text-neutral-900 mb-2">About This Room</h3>
                         <p className="text-neutral-700 text-sm leading-relaxed">
                           {selectedRoom.description}
                         </p>
                       </div>
 
-                      {/* Amenities */}
+                      {/* In-Room Features */}
+                      {(selectedRoom.wifi || selectedRoom.air_conditioning || selectedRoom.tv || selectedRoom.safe || selectedRoom.minibar) && (
+                        <div className="mb-6 pb-6 border-b border-neutral-200">
+                          <h3 className="font-semibold text-neutral-900 mb-3">Room Features</h3>
+                          <div className="grid grid-cols-2 gap-2">
+                            {selectedRoom.wifi && (
+                              <div className="flex items-center gap-2 text-sm text-neutral-700">
+                                <svg className="w-4 h-4 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                                <span>WiFi</span>
+                              </div>
+                            )}
+                            {selectedRoom.air_conditioning && (
+                              <div className="flex items-center gap-2 text-sm text-neutral-700">
+                                <svg className="w-4 h-4 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                                <span>Air Conditioning</span>
+                              </div>
+                            )}
+                            {selectedRoom.tv && (
+                              <div className="flex items-center gap-2 text-sm text-neutral-700">
+                                <svg className="w-4 h-4 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                                <span>TV</span>
+                              </div>
+                            )}
+                            {selectedRoom.telephone && (
+                              <div className="flex items-center gap-2 text-sm text-neutral-700">
+                                <svg className="w-4 h-4 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                                <span>Telephone</span>
+                              </div>
+                            )}
+                            {selectedRoom.safe && (
+                              <div className="flex items-center gap-2 text-sm text-neutral-700">
+                                <svg className="w-4 h-4 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                                <span>Safe</span>
+                              </div>
+                            )}
+                            {selectedRoom.minibar && (
+                              <div className="flex items-center gap-2 text-sm text-neutral-700">
+                                <svg className="w-4 h-4 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                                <span>Minibar</span>
+                              </div>
+                            )}
+                            {selectedRoom.coffee_maker && (
+                              <div className="flex items-center gap-2 text-sm text-neutral-700">
+                                <svg className="w-4 h-4 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                                <span>Coffee Maker</span>
+                              </div>
+                            )}
+                            {selectedRoom.hairdryer && (
+                              <div className="flex items-center gap-2 text-sm text-neutral-700">
+                                <svg className="w-4 h-4 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                                <span>Hairdryer</span>
+                              </div>
+                            )}
+                            {selectedRoom.bathrobe_slippers && (
+                              <div className="flex items-center gap-2 text-sm text-neutral-700">
+                                <svg className="w-4 h-4 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                                <span>Bathrobe & Slippers</span>
+                              </div>
+                            )}
+                            {selectedRoom.iron_ironing_board && (
+                              <div className="flex items-center gap-2 text-sm text-neutral-700">
+                                <svg className="w-4 h-4 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                                <span>Iron & Ironing Board</span>
+                              </div>
+                            )}
+                            {selectedRoom.has_balcony && (
+                              <div className="flex items-center gap-2 text-sm text-neutral-700">
+                                <svg className="w-4 h-4 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                                <span>Balcony</span>
+                              </div>
+                            )}
+                            {selectedRoom.soundproof && (
+                              <div className="flex items-center gap-2 text-sm text-neutral-700">
+                                <svg className="w-4 h-4 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                                <span>Soundproof</span>
+                              </div>
+                            )}
+                            {selectedRoom.has_kitchenette && (
+                              <div className="flex items-center gap-2 text-sm text-neutral-700">
+                                <svg className="w-4 h-4 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                                <span>Kitchenette</span>
+                              </div>
+                            )}
+                            {selectedRoom.has_seating_area && (
+                              <div className="flex items-center gap-2 text-sm text-neutral-700">
+                                <svg className="w-4 h-4 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                                <span>Seating Area</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Bathroom Features */}
+                      {selectedRoom.bathroom_features && (
+                        <div className="mb-6 pb-6 border-b border-neutral-200">
+                          <h3 className="font-semibold text-neutral-900 mb-3">Bathroom</h3>
+                          <div className="space-y-1">
+                            {selectedRoom.bathroom_features.split('\n').filter(f => f.trim()).map((feature, idx) => (
+                              <div key={idx} className="flex items-center gap-2 text-sm text-neutral-700">
+                                <svg className="w-4 h-4 text-primary-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                </svg>
+                                <span>{feature.trim()}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Accessibility */}
+                      {(selectedRoom.wheelchair_accessible || selectedRoom.accessible_bathroom) && (
+                        <div className="mb-6 pb-6 border-b border-neutral-200">
+                          <h3 className="font-semibold text-neutral-900 mb-3">Accessibility</h3>
+                          <div className="space-y-2">
+                            {selectedRoom.wheelchair_accessible && (
+                              <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 px-3 py-2 rounded">
+                                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" /></svg>
+                                <span className="font-medium">Wheelchair Accessible</span>
+                              </div>
+                            )}
+                            {selectedRoom.accessible_bathroom && (
+                              <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 px-3 py-2 rounded">
+                                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" /></svg>
+                                <span className="font-medium">Accessible Bathroom</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Room Policies */}
+                      {(selectedRoom.smoking_policy || selectedRoom.pet_policy) && (
+                        <div className="mb-6 pb-6 border-b border-neutral-200">
+                          <h3 className="font-semibold text-neutral-900 mb-3">Room Policies</h3>
+                          <div className="space-y-2 text-sm text-neutral-700">
+                            {selectedRoom.smoking_policy && (
+                              <div className="flex items-center gap-2">
+                                <svg className="w-4 h-4 text-neutral-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                <span>Smoking: {selectedRoom.smoking_policy_display || selectedRoom.smoking_policy.replace('_', ' ')}</span>
+                              </div>
+                            )}
+                            {selectedRoom.pet_policy && (
+                              <div className="flex items-center gap-2">
+                                <svg className="w-4 h-4 text-neutral-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                <span>Pets: {selectedRoom.pet_policy_display || selectedRoom.pet_policy.replace('_', ' ')}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Special Perks */}
+                      {selectedRoom.special_perks && (
+                        <div className="mb-6 pb-6 border-b border-neutral-200">
+                          <h3 className="font-semibold text-neutral-900 mb-3">Special Perks</h3>
+                          <div className="space-y-1">
+                            {selectedRoom.special_perks.split('\n').filter(p => p.trim()).map((perk, idx) => (
+                              <div key={idx} className="flex items-center gap-2 text-sm text-primary-700">
+                                <svg className="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
+                                <span>{perk.trim()}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Virtual Tour */}
+                      {selectedRoom.virtual_tour_url && (
+                        <div className="mb-6 pb-6 border-b border-neutral-200">
+                          <a
+                            href={selectedRoom.virtual_tour_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-2 text-primary-500 hover:text-primary-600 font-medium"
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                            </svg>
+                            <span>Take Virtual Tour</span>
+                          </a>
+                        </div>
+                      )}
+
+                      {/* Legacy Amenities */}
                       {selectedRoom.amenities && selectedRoom.amenities.length > 0 && (
                         <div className="mb-6">
-                          <h3 className="font-semibold text-neutral-900 mb-3">Amenities</h3>
+                          <h3 className="font-semibold text-neutral-900 mb-3">Additional Amenities</h3>
                           <div className="space-y-2">
                             {selectedRoom.amenities.map((amenity) => (
                               <div key={amenity.id} className="flex items-center gap-2 text-sm text-neutral-700">

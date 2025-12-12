@@ -8,6 +8,7 @@ import GalleryManagement from '@/components/admin/GalleryManagement';
 import BookingsManagement from '@/components/admin/BookingsManagement';
 import ContactMessagesManagement from '@/components/admin/ContactMessagesManagement';
 import RoomAvailabilityManagement from '@/components/admin/RoomAvailabilityManagement';
+import AdminMessaging from '@/components/messaging/AdminMessaging';
 
 interface User {
   id: number;
@@ -16,7 +17,7 @@ interface User {
   role: string;
 }
 
-type Tab = 'overview' | 'rooms' | 'gallery' | 'bookings' | 'contacts' | 'availability';
+type Tab = 'overview' | 'rooms' | 'gallery' | 'bookings' | 'contacts' | 'availability' | 'messages';
 
 export default function AdminDashboard() {
   const router = useRouter();
@@ -127,6 +128,7 @@ export default function AdminDashboard() {
                 { id: 'gallery', label: 'Gallery' },
                 { id: 'bookings', label: 'Bookings' },
                 { id: 'contacts', label: 'Contact Messages' },
+                { id: 'messages', label: 'Messages' },
               ].map((tab) => (
                 <button
                   key={tab.id}
@@ -242,6 +244,13 @@ export default function AdminDashboard() {
         {activeTab === 'gallery' && <GalleryManagement onUpdate={fetchStats} />}
         {activeTab === 'bookings' && <BookingsManagement onUpdate={fetchStats} />}
         {activeTab === 'contacts' && <ContactMessagesManagement />}
+        {activeTab === 'messages' && (
+          <div className="h-[700px] bg-white rounded-lg shadow overflow-hidden">
+            <AdminMessaging
+              token={typeof window !== 'undefined' ? localStorage.getItem('access_token') || '' : ''}
+            />
+          </div>
+        )}
       </main>
     </div>
   );

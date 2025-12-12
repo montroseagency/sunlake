@@ -2,7 +2,24 @@
   "permissions": {
     "allow": [
       "Bash(node --version:*)",
-      "Bash(mkdir:*)"
+      "Bash(mkdir:*)",
+      "Bash(python manage.py runserver:*)",
+      "Bash(npm run dev)",
+      "Bash(python3 -m venv:*)",
+      "Bash(source:*)",
+      "Bash(pip install:*)",
+      "Bash(npm install)",
+      "Bash(lsof:*)",
+      "Bash(xargs kill:*)",
+      "Bash(python manage.py createsuperuser:*)",
+      "Bash(python manage.py migrate:*)",
+      "Bash(python:*)",
+      "Bash(npm install:*)",
+      "Bash(brew services:*)",
+      "Bash(mongod:*)",
+      "Bash(brew tap:*)",
+      "Bash(brew install:*)",
+      "Bash(git add:*)"
     ],
     "deny": [],
     "ask": []
