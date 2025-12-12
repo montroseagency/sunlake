@@ -4,54 +4,62 @@ import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import api from '@/lib/api';
 
+interface GalleryCategory {
+  id: number;
+  name: string;
+  display_name: string;
+  order: number;
+}
+
 interface GalleryImage {
   id: number;
-  title: string;
-  description: string;
+  category: number;
+  category_name: string;
   image_url: string;
   image_display: string;
-  category: string;
   order: number;
-  is_active: boolean;
   created_at: string;
 }
 
-const CATEGORY_LABELS: { [key: string]: string } = {
-  'HOTEL': 'Hotel',
-  'ROOM': 'Rooms',
-  'DINING': 'Dining',
-  'FACILITIES': 'Facilities',
-  'EVENTS': 'Events',
-  'OTHER': 'Other',
-};
-
 export default function GalleryPage() {
+  const [categories, setCategories] = useState<GalleryCategory[]>([]);
   const [images, setImages] = useState<GalleryImage[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedCategory, setSelectedCategory] = useState<string>('');
+  const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
 
   useEffect(() => {
+    fetchCategories();
     fetchImages();
+  }, []);
+
+  useEffect(() => {
+    if (selectedCategory !== null) {
+      fetchImages();
+    }
   }, [selectedCategory]);
+
+  const fetchCategories = async () => {
+    try {
+      const response = await api.get('/gallery-categories/');
+      const data = response.data.results || response.data || [];
+      setCategories(data.sort((a: GalleryCategory, b: GalleryCategory) => a.order - b.order));
+    } catch (error) {
+      console.error('Error fetching categories:', error);
+    }
+  };
 
   const fetchImages = async () => {
     try {
       const params = selectedCategory ? { category: selectedCategory } : {};
       const response = await api.get('/gallery/', { params });
       const data = response.data.results || response.data || [];
-      // Filter to only show active images and sort by order
-      const activeImages = data
-        .filter((img: GalleryImage) => img.is_active)
-        .sort((a: GalleryImage, b: GalleryImage) => a.order - b.order);
-      setImages(activeImages);
+      setImages(data.sort((a: GalleryImage, b: GalleryImage) => a.order - b.order));
     } catch (error) {
       console.error('Error fetching gallery images:', error);
     } finally {
       setLoading(false);
     }
   };
-
-  const categories = Object.keys(CATEGORY_LABELS);
 
   return (
     <div className="min-h-screen">
@@ -68,9 +76,9 @@ export default function GalleryPage() {
         <div className="container mx-auto px-4">
           <div className="flex flex-wrap gap-3 justify-center">
             <button
-              onClick={() => setSelectedCategory('')}
+              onClick={() => setSelectedCategory(null)}
               className={`px-6 py-2 rounded-lg font-medium transition-colors ${
-                selectedCategory === ''
+                selectedCategory === null
                   ? 'bg-primary-500 text-white'
                   : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
               }`}
@@ -79,15 +87,15 @@ export default function GalleryPage() {
             </button>
             {categories.map((category) => (
               <button
-                key={category}
-                onClick={() => setSelectedCategory(category)}
+                key={category.id}
+                onClick={() => setSelectedCategory(category.id)}
                 className={`px-6 py-2 rounded-lg font-medium transition-colors ${
-                  selectedCategory === category
+                  selectedCategory === category.id
                     ? 'bg-primary-500 text-white'
                     : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
                 }`}
               >
-                {CATEGORY_LABELS[category]}
+                {category.display_name}
               </button>
             ))}
           </div>
@@ -111,16 +119,13 @@ export default function GalleryPage() {
                 <div key={image.id} className="group relative h-80 overflow-hidden rounded-lg shadow-lg cursor-pointer">
                   <img
                     src={image.image_display || image.image_url}
-                    alt={image.title}
+                    alt={`${image.category_name} - Image ${image.id}`}
                     className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                     <div className="absolute bottom-0 left-0 right-0 p-6 text-white">
-                      <p className="text-sm font-medium mb-1">{CATEGORY_LABELS[image.category]}</p>
-                      <h3 className="text-xl font-semibold">{image.title}</h3>
-                      {image.description && (
-                        <p className="text-sm mt-2 opacity-90">{image.description}</p>
-                      )}
+                      <p className="text-sm font-medium mb-1">{image.category_name}</p>
+                      <h3 className="text-xl font-semibold">Gallery Image</h3>
                     </div>
                   </div>
                 </div>

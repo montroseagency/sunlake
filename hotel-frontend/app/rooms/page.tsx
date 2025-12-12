@@ -6,6 +6,19 @@ import Image from 'next/image';
 import api from '@/lib/api';
 import { RoomListItem, Room } from '@/types/room';
 
+interface RoomAvailability {
+  id: number;
+  room: number;
+  room_name: string;
+  start_date: string;
+  end_date: string;
+  status: 'BUSY' | 'MAINTENANCE' | 'BLOCKED';
+  status_display: string;
+  notes: string;
+  booking: number | null;
+  created_at: string;
+}
+
 export default function RoomsPage() {
   const [rooms, setRooms] = useState<RoomListItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -13,6 +26,7 @@ export default function RoomsPage() {
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [loadingDetails, setLoadingDetails] = useState(false);
+  const [availabilityData, setAvailabilityData] = useState<RoomAvailability[]>([]);
 
   // Filters
   const [checkIn, setCheckIn] = useState('');
@@ -28,6 +42,7 @@ export default function RoomsPage() {
 
   useEffect(() => {
     fetchRooms();
+    fetchAvailability();
   }, [checkIn, checkOut, capacity, minPrice, maxPrice, roomType, viewType, bedType, accessibilityFilter]);
 
   const fetchRooms = async () => {
@@ -41,6 +56,9 @@ export default function RoomsPage() {
       if (minPrice) params.append('min_price', minPrice);
       if (maxPrice) params.append('max_price', maxPrice);
       if (roomType) params.append('room_type', roomType);
+
+      // Request rooms with images included
+      params.append('include_images', 'true');
 
       const response = await api.get(`/rooms/?${params.toString()}`);
       let fetchedRooms = response.data.results || response.data;
@@ -63,6 +81,69 @@ export default function RoomsPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchAvailability = async () => {
+    try {
+      const response = await api.get('/room-availability/');
+      const data = response.data.results || response.data || [];
+      setAvailabilityData(data);
+    } catch (err) {
+      console.error('Failed to fetch availability:', err);
+    }
+  };
+
+  const getRoomAvailabilityStatus = (roomId: number) => {
+    if (!checkIn || !checkOut) {
+      return { status: 'unknown', text: 'Select dates to check availability' };
+    }
+
+    const checkInDate = new Date(checkIn);
+    const checkOutDate = new Date(checkOut);
+
+    // Find overlapping availability periods for this room
+    const overlaps = availabilityData.filter((period) => {
+      if (period.room !== roomId) return false;
+
+      const periodStart = new Date(period.start_date);
+      const periodEnd = new Date(period.end_date);
+
+      // Check if date ranges overlap
+      return checkInDate <= periodEnd && checkOutDate >= periodStart;
+    });
+
+    if (overlaps.length === 0) {
+      return { status: 'available', text: 'Available for your dates' };
+    }
+
+    // Find the next available date
+    const busyPeriods = availabilityData
+      .filter((p) => p.room === roomId)
+      .sort((a, b) => new Date(a.start_date).getTime() - new Date(b.start_date).getTime());
+
+    const firstBusyPeriod = busyPeriods[0];
+    if (firstBusyPeriod) {
+      const endDate = new Date(firstBusyPeriod.end_date);
+      const formattedDate = endDate.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      });
+
+      if (overlaps[0].status === 'MAINTENANCE') {
+        return {
+          status: 'maintenance',
+          text: `Under maintenance until ${formattedDate}`,
+        };
+      }
+
+      return {
+        status: 'busy',
+        text: `Busy until ${formattedDate}`,
+      };
+    }
+
+    return { status: 'busy', text: 'Not available for selected dates' };
   };
 
   const clearAllFilters = () => {
@@ -290,11 +371,38 @@ export default function RoomsPage() {
               <div key={room.id} className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-xl transition-shadow">
                 <div className="relative h-64">
                   <Image
-                    src={room.primary_image || 'https://images.unsplash.com/photo-1611892440504-42a792e24d32?w=800'}
+                    src={
+                      (room as any).images?.[0]?.image_display ||
+                      (room as any).images?.[0]?.image_url ||
+                      room.primary_image ||
+                      'https://images.unsplash.com/photo-1611892440504-42a792e24d32?w=800'
+                    }
                     alt={room.name}
                     fill
                     className="object-cover"
                   />
+                  {/* Availability Badge */}
+                  {(() => {
+                    const availability = getRoomAvailabilityStatus(room.id);
+                    const badgeColors = {
+                      available: 'bg-green-500 text-white',
+                      busy: 'bg-red-500 text-white',
+                      maintenance: 'bg-yellow-500 text-white',
+                      unknown: 'bg-neutral-500 text-white',
+                    };
+                    const icon = {
+                      available: '✓',
+                      busy: '✗',
+                      maintenance: '⏰',
+                      unknown: '?',
+                    };
+                    return (
+                      <div className={`absolute top-3 right-3 px-3 py-1.5 rounded-lg ${badgeColors[availability.status as keyof typeof badgeColors]} shadow-lg text-sm font-medium flex items-center gap-1`}>
+                        <span>{icon[availability.status as keyof typeof icon]}</span>
+                        <span className="hidden sm:inline">{availability.status === 'available' ? 'Available' : availability.status === 'busy' ? 'Busy' : availability.status === 'maintenance' ? 'Maintenance' : 'Select Dates'}</span>
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 <div className="p-6">
@@ -304,6 +412,27 @@ export default function RoomsPage() {
                       {room.room_type}
                     </span>
                   </div>
+
+                  {/* Availability Details */}
+                  {(() => {
+                    const availability = getRoomAvailabilityStatus(room.id);
+                    if (availability.status === 'unknown') {
+                      return null; // Don't show details if dates not selected
+                    }
+
+                    const textColors = {
+                      available: 'text-green-600',
+                      busy: 'text-red-600',
+                      maintenance: 'text-yellow-600',
+                      unknown: 'text-neutral-500',
+                    };
+
+                    return (
+                      <p className={`text-sm font-medium mb-3 ${textColors[availability.status]}`}>
+                        {availability.text}
+                      </p>
+                    );
+                  })()}
 
                   {/* Bed and Capacity Info */}
                   <div className="mb-3">
@@ -339,12 +468,20 @@ export default function RoomsPage() {
                       <span className="text-2xl font-bold text-primary-500">${room.base_price_per_night}</span>
                       <span className="text-neutral-600"> / night</span>
                     </div>
-                    <button
-                      onClick={() => fetchRoomDetails(room.slug)}
-                      className="bg-primary-500 hover:bg-primary-600 text-white px-4 py-2 rounded-lg transition-colors"
-                    >
-                      View Details
-                    </button>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => fetchRoomDetails(room.slug)}
+                        className="border-2 border-primary-500 text-primary-600 hover:bg-primary-50 px-4 py-2 rounded-lg transition-colors font-medium"
+                      >
+                        Details
+                      </button>
+                      <Link
+                        href={`/booking?room=${room.slug}`}
+                        className="bg-primary-500 hover:bg-primary-600 text-white px-4 py-2 rounded-lg transition-colors font-medium"
+                      >
+                        Book Now
+                      </Link>
+                    </div>
                   </div>
                 </div>
               </div>

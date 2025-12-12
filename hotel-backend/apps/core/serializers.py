@@ -5,10 +5,11 @@ from apps.core.models import GalleryCategory, GalleryImage, ContactMessage
 class GalleryCategorySerializer(serializers.ModelSerializer):
     """Serializer for gallery categories"""
     image_count = serializers.SerializerMethodField()
+    display_name = serializers.CharField(source='name', read_only=True)
 
     class Meta:
         model = GalleryCategory
-        fields = ['id', 'name', 'slug', 'description', 'order', 'is_active', 'image_count', 'created_at', 'updated_at']
+        fields = ['id', 'name', 'display_name', 'slug', 'description', 'order', 'is_active', 'image_count', 'created_at', 'updated_at']
         read_only_fields = ['slug', 'created_at', 'updated_at']
 
     def get_image_count(self, obj):

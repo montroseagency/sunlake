@@ -32,8 +32,8 @@ export default function AdminMessaging({ token }: Props) {
     sendMessage,
     markAsRead,
     isTyping: customerIsTyping,
-    sendTypingIndicator,
-    setAdminOnline
+    sendTyping,
+    joinConversation
   } = useMessaging(token);
 
   // Fetch all conversations
@@ -59,31 +59,33 @@ export default function AdminMessaging({ token }: Props) {
   useEffect(() => {
     if (token) {
       fetchConversations();
-      setAdminOnline(true);
 
       // Poll for new conversations every 30 seconds
       const interval = setInterval(fetchConversations, 30000);
       return () => {
         clearInterval(interval);
-        setAdminOnline(false);
       };
     }
-  }, [token, setAdminOnline]);
+  }, [token]);
 
   // Auto-scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Mark messages as read when conversation is selected
+  // Join conversation and mark messages as read when conversation is selected
   useEffect(() => {
-    if (selectedConversation && messages.length > 0) {
-      const lastMessage = messages[messages.length - 1];
-      if (lastMessage && !lastMessage.read && lastMessage.sender_type === 'customer') {
-        markAsRead(selectedConversation._id);
+    if (selectedConversation) {
+      joinConversation(selectedConversation._id);
+
+      if (messages.length > 0) {
+        const lastMessage = messages[messages.length - 1];
+        if (lastMessage && !lastMessage.is_read && lastMessage.sender_type === 'customer') {
+          markAsRead(selectedConversation._id);
+        }
       }
     }
-  }, [messages, selectedConversation, markAsRead]);
+  }, [selectedConversation, joinConversation]);
 
   const handleSend = () => {
     if (messageText.trim() && selectedConversation) {
@@ -101,7 +103,7 @@ export default function AdminMessaging({ token }: Props) {
 
   const handleTyping = () => {
     if (selectedConversation) {
-      sendTypingIndicator(selectedConversation._id, true);
+      sendTyping(selectedConversation._id, true);
     }
   };
 
@@ -214,9 +216,9 @@ export default function AdminMessaging({ token }: Props) {
                     <MessageBubble
                       key={message._id}
                       content={message.content}
-                      timestamp={message.timestamp}
+                      timestamp={message.created_at}
                       isSent={message.sender_type === 'admin'}
-                      read={message.read}
+                      read={message.is_read}
                     />
                   ))}
                   {customerIsTyping && (

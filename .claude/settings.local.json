@@ -19,7 +19,14 @@
       "Bash(mongod:*)",
       "Bash(brew tap:*)",
       "Bash(brew install:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git restore:*)",
+      "Bash(hotel-messaging-service/.gitignore)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(npm start)",
+      "Bash(npm run build:*)",
+      "Bash(pgrep:*)"
     ],
     "deny": [],
     "ask": []

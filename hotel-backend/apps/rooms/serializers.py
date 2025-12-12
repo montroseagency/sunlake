@@ -49,6 +49,7 @@ class RoomImageCreateSerializer(serializers.ModelSerializer):
 class RoomListSerializer(serializers.ModelSerializer):
     """Lightweight serializer for room listings"""
     primary_image = serializers.SerializerMethodField()
+    images = serializers.SerializerMethodField()
     amenities = AmenitySerializer(many=True, read_only=True)
     view_type_display = serializers.CharField(source='get_view_type_display', read_only=True)
     bed_configuration_display = serializers.CharField(source='get_bed_configuration_display', read_only=True)
@@ -59,7 +60,7 @@ class RoomListSerializer(serializers.ModelSerializer):
             'id', 'name', 'slug', 'room_type', 'capacity', 'max_occupancy',
             'bed_configuration', 'bed_configuration_display', 'number_of_beds',
             'size_sqm', 'view_type', 'view_type_display', 'has_balcony',
-            'base_price_per_night', 'primary_image', 'amenities', 'wheelchair_accessible'
+            'base_price_per_night', 'primary_image', 'images', 'amenities', 'wheelchair_accessible'
         ]
 
     def get_primary_image(self, obj):
@@ -80,6 +81,11 @@ class RoomListSerializer(serializers.ModelSerializer):
                 return request.build_absolute_uri(image.image.url)
             return image.image.url
         return image.image_url
+
+    def get_images(self, obj):
+        """Return first 5 images for list view (ordered by is_primary, then order)"""
+        images = obj.images.all()[:5]  # Limit to first 5 images for performance
+        return RoomImageSerializer(images, many=True, context=self.context).data
 
 
 class RoomDetailSerializer(serializers.ModelSerializer):
